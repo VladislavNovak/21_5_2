@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 #include <algorithm>
-#include <sstream>
 #include <cstdlib>
 #include <limits>
 
@@ -14,11 +13,11 @@ using std::string;
 
 enum class RoomType { bedroom, kitchen, bathroom, restroom, playroom, living, undefined };
 enum class FloorType { first, second, third, undefined };
-enum class BuildingType { dwellingHouse, garage, shed, bathHouse, undefined };
+enum class BuildingType { house, garage, shed, bathHouse, undefined };
 
 vector<string> roomNames = { "bedroom", "kitchen", "bathroom", "restroom", "playroom", "living", "undefined" };
 vector<string> floorNames = { "first", "second", "third", "undefined" };
-vector<string> buildingNames = { "dwellingHouse", "garage", "shed", "bathHouse", "undefined" };
+vector<string> buildingNames = { "house", "garage", "shed", "bathHouse", "undefined" };
 
 struct Room {
     int id{};
@@ -37,7 +36,7 @@ struct Building {
     int id{};
     BuildingType type = BuildingType::undefined;
     bool isStove = false;
-    int maxFloorCountForDwellingHouse = 3;
+    int maxFloorCountForHouse = 3;
     vector<Floor> floors;
 };
 struct Sector {
@@ -49,19 +48,13 @@ struct Area {
     vector<Sector> sectors;
 };
 
-// ---
+// --- --- --- --- ---
 
 template<typename T, typename N>
 bool isIncludes(const T &range, const N &item) {
     return std::any_of(range.begin(),
                        range.end(),
                        [&item](const N &c) { return c == item; });
-}
-
-bool isNumeric(std::string const &str) {
-    auto it = std::find_if(str.begin(), str.end(), [](const char &c) { return !std::isdigit(c); });
-
-    return (!str.empty() && it == str.end());
 }
 
 std::string getTrimmedString(std::string str, std::string const &whiteSpaces = " \r\n\t\v\f") {
@@ -117,30 +110,13 @@ std::string getUserLineString() {
     }
 }
 
-std::vector<std::string> splitStringIntoList(std::string const &str, const char delim = ',', bool isEmptyRemove = true) {
-    std::vector<std::string> list;
-    std::stringstream ss(str);
-    std::string rawRecord;
-
-    // Делим строки на токены по delim
-    while (std::getline(ss, rawRecord, delim)) {
-        std::string record = getTrimmedString(rawRecord);
-        // Не позволяет добавлять пустой элемент
-        if (record.empty() && isEmptyRemove) continue;
-
-        list.push_back(record);
-    }
-
-    return list;
-}
-
 void outputListToStream(std::ostream &out, std::vector<std::string> const &list, const std::string &delim = ",") {
     for (int i = 0; i < list.size(); ++i) out << list[i] << (i != list.size() - 1 ? delim : "");
 
     out << std::endl;
 }
 
-int getIndexOfUserInputFromList(std::vector<std::string> const &list) {
+int getUserSelectionFromList(std::vector<std::string> const &list) {
     bool isList = list.size() > 1;
 
     while (true) {
@@ -232,11 +208,6 @@ int getUserNumeric(std::vector<int> const &list = {}, std::vector<int> const &ex
     }
 }
 
-template<typename T, typename N>
-N getRandomRangeIndex(T from, N to) {
-    return (from + std::rand() % (to - from + 1)); // NOLINT(cert-msc50-cpp)
-}
-
 int getIdleIndex(vector<int> const &range) {
     vector<int> tempRange = range;
 
@@ -287,13 +258,13 @@ int getIdleIndexInSectors(vector<Sector> const &sectors) {
     return getIdleIndex(range);
 }
 
-void showExistingRooms(vector<Room> const &rooms, string const &msg) {
+void showExistingRooms(vector<Room> const &rooms) {
     if (rooms.empty()) {
         cout << "Инфо: комнат на этаже пока нет!" << endl;
         return;
     }
 
-    cout << msg << ":" << endl;
+    cout << "Инфо: существующие комнаты:" << endl;
     for (auto const &room : rooms) {
         cout << "**** комната id       :" << room.id << endl;
         cout << "**** Тип              :" << roomNames[static_cast<int>(room.type)] << endl;
@@ -302,49 +273,49 @@ void showExistingRooms(vector<Room> const &rooms, string const &msg) {
     }
 }
 
-void showExistingFloors(vector<Floor> const &floors, string const &msg) {
+void showExistingFloors(vector<Floor> const &floors) {
     if (floors.empty()) {
         cout << "Инфо: этажей в здании пока нет!" << endl;
         return;
     }
 
-    cout << msg << ":" << endl;
+    cout << "Инфо: существующие этажи:" << endl;
     for (auto const &floor : floors) {
         cout << "*** этаж id           :" << floor.id << endl;
         cout << "*** Тип               :" << floorNames[static_cast<int>(floor.type)] << endl;
         cout << "*** Высота            :" << floor.height << endl;
         cout << "*** Количество комнат :" << floor.rooms.size() << endl;
-        showExistingRooms(floor.rooms, "Существующие комнаты");
+        showExistingRooms(floor.rooms);
     }
 }
 
-void showExistingBuildings(vector<Building> const &buildings, string const &msg) {
+void showExistingBuildings(vector<Building> const &buildings) {
     if (buildings.empty()) {
         cout << "Инфо: зданий на участке пока нет!" << endl;
         return;
     }
 
-    cout << msg << ":" << endl;
+    cout << "Инфо: существующие здания:" << endl;
     for (auto const &building : buildings) {
         cout << "** здание id          :" << building.id << endl;
         cout << "** Тип                :" << buildingNames[static_cast<int>(building.type)] << endl;
         cout << "** Наличие печи       :" << (building.isStove ? "Есть" : "Нет") << endl;
         cout << "** Количество этажей  :" << building.floors.size() << endl;
-        showExistingFloors(building.floors, "Существующие этажи");
+        showExistingFloors(building.floors);
     }
 }
 
-void showExistingSectors(vector<Sector> const &sectors, string const &msg) {
+void showExistingSectors(vector<Sector> const &sectors) {
     if (sectors.empty()) {
         cout << "Инфо: на территории участков пока нет!" << endl;
         return;
     }
 
-    cout << msg << ":" << endl;
+    cout << "Инфо: существующие участки:" << endl;
     for (auto const &sector : sectors) {
         cout << "* сектор id           :" << sector.id << endl;
         cout << "* Количество зданий   :" << sector.buildings.size() << endl;
-        showExistingBuildings(sector.buildings, "Существующие здания");
+        showExistingBuildings(sector.buildings);
     }
 }
 
@@ -361,7 +332,7 @@ vector<int> getAvailableFloorTypeList(Building const &building) {
     vector<int> existingTypeList;
 
     // Если тип Дом, тогда добавляем все возможные варианты
-    if (building.type == BuildingType::dwellingHouse) {
+    if (building.type == BuildingType::house) {
         for (int i = 0; i < static_cast<int>(FloorType::undefined); ++i) baseTypeList.push_back(i);
     }
     // В противном случае - добавляем лишь первый этаж
@@ -401,29 +372,23 @@ vector<int> getAvailableBuildingTypeList(Sector const &sector) {
     return availableTypesList;
 }
 
-string getUserSelect(vector<string> const &list) {
-    auto indexName = getRandomRangeIndex(0, list.size() - 1);
-    return list[indexName];
-}
-
-// ---
+// --- --- --- --- --- ---
 
 // availableTypes - перечень типов, которые можно создавать
 void setRoom(Room &room, vector<int> const& availableTypes) {
-    // system("cls");
     // --- Изменение типа комнаты ---
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> FLOOR -> ROOM -> edit room.type:" << endl;
     cout << "Текущий тип комнаты: " << roomNames[static_cast<int>(room.type)] << ". Меняем?" << endl;
-    if (getIndexOfUserInputFromList({ "yes", "no" }) == 0) {
-        // Преобразовываем в список string для обработки в getIndexOfUserInputFromList
+    if (getUserSelectionFromList({ "yes", "no" }) == 0) {
+        // Преобразовываем в список string для обработки в getUserSelectionFromList
         vector<string> availableTypesNames;
         for (auto const & type : availableTypes) {
             availableTypesNames.push_back(roomNames[type]);
         }
 
         cout << "Возможные типы комнат: " << endl;
-        auto selectedRoomType = getIndexOfUserInputFromList(availableTypesNames);
+        auto selectedRoomType = getUserSelectionFromList(availableTypesNames);
         room.type = static_cast<RoomType>(selectedRoomType);
     }
 
@@ -431,7 +396,7 @@ void setRoom(Room &room, vector<int> const& availableTypes) {
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> FLOOR -> ROOM -> edit room.width:" << endl;
     cout << "Текущая ширина комнаты: " << std::to_string(room.width) << ". Меняем?" << endl;
-    if (getIndexOfUserInputFromList({ "yes", "no" }) == 0) {
+    if (getUserSelectionFromList({ "yes", "no" }) == 0) {
         room.width = getUserNumeric({ 1000, 5000 });
     }
 
@@ -439,7 +404,7 @@ void setRoom(Room &room, vector<int> const& availableTypes) {
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> FLOOR -> ROOM -> edit room.width:" << endl;
     cout << "Текущая длина комнаты: " <<room.length << ". Меняем?" << endl;
-    if (getIndexOfUserInputFromList({ "yes", "no" }) == 0) {
+    if (getUserSelectionFromList({ "yes", "no" }) == 0) {
         room.length = getUserNumeric({ 1000, 5000 });
     }
 
@@ -449,8 +414,6 @@ void setRoom(Room &room, vector<int> const& availableTypes) {
 Room getNewRoom(int newId, vector<int> const& availableTypes) {
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> FLOOR -> One ROOM created" << endl;
-    // system("pause");
-    // system("cls");
     Room room;
     // id - is private properties. Получаем из родителя
     room.id = newId;
@@ -462,20 +425,19 @@ Room getNewRoom(int newId, vector<int> const& availableTypes) {
 
 // availableTypes - перечень типов, которые можно создавать
 void setFloor(Floor &floor, vector<int> const& availableTypes) {
-    // system("cls");
     // --- Изменение типа этажа ---
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> FLOOR -> edit floor.type:" << endl;
     cout << "Текущий тип этажа: " << floorNames[static_cast<int>(floor.type)] << ". Меняем?" << endl;
-    if (getIndexOfUserInputFromList({ "yes", "no" }) == 0) {
-        // Преобразовываем в список string для обработки в getIndexOfUserInputFromList
+    if (getUserSelectionFromList({ "yes", "no" }) == 0) {
+        // Преобразовываем в список string для обработки в getUserSelectionFromList
         vector<string> availableTypesNames;
         for (auto const & type : availableTypes) {
             availableTypesNames.push_back(floorNames[type]);
         }
 
         cout << "Возможные типы этажей: " << endl;
-        auto selectedIndex = getIndexOfUserInputFromList(availableTypesNames);
+        auto selectedIndex = getUserSelectionFromList(availableTypesNames);
         floor.type = static_cast<FloorType>(selectedIndex);
     }
 
@@ -483,14 +445,14 @@ void setFloor(Floor &floor, vector<int> const& availableTypes) {
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> FLOOR -> edit floor.height:" << endl;
     cout << "Текущая высота этажа: " << std::to_string(floor.height) << ". Меняем?" << endl;
-    if (getIndexOfUserInputFromList({ "yes", "no" }) == 0) {
+    if (getUserSelectionFromList({ "yes", "no" }) == 0) {
         floor.height = getUserNumeric({ 2000, 4000 });
     }
 
     // --- Изменения типов и количества комнат на этаже ---
-    showExistingRooms(floor.rooms, "Существующие комнаты");
+    showExistingRooms(floor.rooms);
     cout << "Хотите внести изменения в список комнат на этаже?" << endl;
-    if (getIndexOfUserInputFromList({"yes", "no"}) == 0) {
+    if (getUserSelectionFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
@@ -503,7 +465,7 @@ void setFloor(Floor &floor, vector<int> const& availableTypes) {
             if ((floor.rooms.size() >= floor.maxRoomCount) && index >= 0)
                 commands.erase(commands.begin() + index);
 
-            auto selectedCommand = floor.rooms.empty()? 0 : getIndexOfUserInputFromList(commands);
+            auto selectedCommand = floor.rooms.empty()? 0 : getUserSelectionFromList(commands);
             vector<int> availableRoomTypes = getAvailableRoomTypeList();
 
             if (commands[selectedCommand] == "add") {
@@ -529,7 +491,7 @@ void setFloor(Floor &floor, vector<int> const& availableTypes) {
                 setRoom(floor.rooms[selectUserItemForChange], availableRoomTypes);
             }
             else if (commands[selectedCommand] == "about") {
-                showExistingRooms(floor.rooms, "Существующие комнаты");
+                showExistingRooms(floor.rooms);
             }
             else if (commands[selectedCommand] == "exit") {
                 cout << "Выход из редактирования комнат" << endl;
@@ -542,14 +504,11 @@ void setFloor(Floor &floor, vector<int> const& availableTypes) {
 Floor getNewFloor(int newId, vector<int> const& availableTypesList) {
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> One FLOOR created" << endl;
-    // system("pause");
-    // system("cls");
     Floor floor;
     // id - is private properties. Получаем из родителя
     floor.id = newId;
 
     setFloor(floor, availableTypesList);
-    // setFloor(floor, availableTypesNames);
 
     return floor;
 }
@@ -559,32 +518,30 @@ void setBuilding(Building &building, vector<int> const& availableTypes) {
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> edit building.type:" << endl;
     cout << "Текущий тип здания: " << buildingNames[static_cast<int>(building.type)] << ". Меняем?" << endl;
-    if (getIndexOfUserInputFromList({ "yes", "no" }) == 0) {
+    if (getUserSelectionFromList({ "yes", "no" }) == 0) {
         vector<string> availableTypesNames;
         for (auto const & type : availableTypes) {
             availableTypesNames.push_back(buildingNames[type]);
         }
-        auto selectedIndex = getIndexOfUserInputFromList(availableTypesNames);
+        auto selectedIndex = getUserSelectionFromList(availableTypesNames);
         building.type = static_cast<BuildingType>(selectedIndex);
     }
 
     // --- Изменения типов и количества этажей в здании ---
-    showExistingFloors(building.floors, "Существующие этажи");
+    showExistingFloors(building.floors);
     cout << "Хотите внести изменения в этажи в здании?" << endl;
-    if (getIndexOfUserInputFromList({"yes", "no"}) == 0) {
+    if (getUserSelectionFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
-            // system("pause");
-            // system("cls");
             cout << "-----------------------------------------------" << endl;
             cout << "AREA -> SECTOR ->  BUILDING -> operations with buildings.floors:" << endl;
 
             // Пытаемся найти пункт меню. >= 0 - индекс найден
             auto index = findIndexInVector<string>(commands, "add");
 
-            bool isHouse = building.type == BuildingType::dwellingHouse;
-            auto maxSize = building.maxFloorCountForDwellingHouse;
+            bool isHouse = building.type == BuildingType::house;
+            auto maxSize = building.maxFloorCountForHouse;
             auto currentSize = building.floors.size();
             // В доме может быть лишь три этажа. В остальных зданиях - лишь первый.
             if ((isHouse && currentSize < maxSize) && index == -1) commands.emplace_back("add");
@@ -592,7 +549,7 @@ void setBuilding(Building &building, vector<int> const& availableTypes) {
                 commands.erase(commands.begin() + index);
             }
 
-            auto selectedCommand = building.floors.empty() ? 0 : getIndexOfUserInputFromList(commands);
+            auto selectedCommand = building.floors.empty() ? 0 : getUserSelectionFromList(commands);
 
             // Получаем незанятые типы для floors
             vector<int> availableFloorTypes = getAvailableFloorTypeList(building);
@@ -618,7 +575,7 @@ void setBuilding(Building &building, vector<int> const& availableTypes) {
                 setFloor(building.floors[selectUserItemForChange], availableFloorTypes);
             }
             else if (commands[selectedCommand] == "about") {
-                showExistingFloors(building.floors, "Существующие этажи");
+                showExistingFloors(building.floors);
             }
             else if (commands[selectedCommand] == "exit") {
                 cout << "Выход из редактирования этажей" << endl;
@@ -630,10 +587,11 @@ void setBuilding(Building &building, vector<int> const& availableTypes) {
     // --- Изменения по наличию в здании печи ---
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR ->  BUILDING -> edit building.isStove:" << endl;
-    if (building.type == BuildingType::dwellingHouse || building.type == BuildingType::bathHouse) {
+    if (building.type == BuildingType::house || building.type == BuildingType::bathHouse) {
         cout << (building.isStove ? "В здании есть печь. Меняем?" : "В здании нет печи. Меняем?") << endl;
-        if (getIndexOfUserInputFromList({ "yes", "no" }) == 0) {
+        if (getUserSelectionFromList({ "yes", "no" }) == 0) {
             building.isStove = !building.isStove;
+            cout << "Печь добавлена" << endl;
         }
     }
 }
@@ -641,8 +599,6 @@ void setBuilding(Building &building, vector<int> const& availableTypes) {
 Building getNewBuilding(int newId, vector<int> const& availableTypes) {
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> SECTOR -> One BUILDING created" << endl;
-    // system("pause");
-    // system("cls");
     Building building;
     // id - is private properties. Получаем из родителя уникальный номер
     building.id = newId;
@@ -653,22 +609,19 @@ Building getNewBuilding(int newId, vector<int> const& availableTypes) {
 }
 
 void setSector(Sector &sector) {
-    // system("cls");
     // --- Изменения типов и количества зданий на участке ---
-    showExistingBuildings(sector.buildings, "Существующие здания");
+    showExistingBuildings(sector.buildings);
     cout << "Хотите внести изменения в список зданий на участке?" << endl;
-    if (getIndexOfUserInputFromList({"yes", "no"}) == 0) {
+    if (getUserSelectionFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
-            // system("pause");
-            // system("cls");
             cout << "-----------------------------------------------" << endl;
             cout << "AREA -> SECTOR -> operations with sector.buildings:" << endl;
 
             // Если в диалоге выше ввели yes, а в перечне зданий пусто - это уже подразумевает,
             // что мы хотим сразу добавить одно здание:
-            auto selectedCommand = sector.buildings.empty() ? 0 : getIndexOfUserInputFromList(commands);
+            auto selectedCommand = sector.buildings.empty() ? 0 : getUserSelectionFromList(commands);
 
             // Вычисляем незанятые типы для building, т.к. они должны быть оригинальными
             auto availableBuildingTypes = getAvailableBuildingTypeList(sector);
@@ -689,7 +642,7 @@ void setSector(Sector &sector) {
                 setBuilding(sector.buildings[selectUserItemForChange], availableBuildingTypes);
             }
             else if (commands[selectedCommand] == "about") {
-                showExistingBuildings(sector.buildings, "Существующие здания");
+                showExistingBuildings(sector.buildings);
             }
             else if (commands[selectedCommand] == "exit") {
                 cout << "Выход из редактирования зданий на участке" << endl;
@@ -702,8 +655,6 @@ void setSector(Sector &sector) {
 Sector getNewSector(int newId) {
     cout << "-----------------------------------------------" << endl;
     cout << "AREA -> One SECTOR created" << endl;
-    // system("pause");
-    // system("cls");
     Sector sector;
     // id - is private properties. Получаем из родителя уникальный номер
     sector.id = newId;
@@ -716,19 +667,17 @@ Sector getNewSector(int newId) {
 void setArea(Area &area) {
     // Здесь можно размещать новые поля и условия
     // ---
-    showExistingSectors(area.sectors, "Информация по существующим участкам");
+    showExistingSectors(area.sectors);
     cout << (area.sectors.empty() ? "Хотите добавить?" : "Хотите внести изменения в список участков на территории?") << endl;
-    if (getIndexOfUserInputFromList({"yes", "no"}) == 0) {
+    if (getUserSelectionFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
-            // system("pause");
-            // system("cls");
             cout << "-----------------------------------------------" << endl;
             cout << "AREA -> operations with sectors:" << endl;
 
             // Если в диалоге выше ввели yes, это уже подразумевает, что мы хотим сразу добавить один сектор:
-            auto selectedCommand = area.sectors.empty() ? 0 : getIndexOfUserInputFromList(commands);
+            auto selectedCommand = area.sectors.empty() ? 0 : getUserSelectionFromList(commands);
 
             if (commands[selectedCommand] == "add") {
                 auto newId = getIdleIndexInSectors(area.sectors);
@@ -747,7 +696,7 @@ void setArea(Area &area) {
                 setSector(area.sectors[selectUserItemForChange]);
             }
             else if (commands[selectedCommand] == "about") {
-                showExistingSectors(area.sectors, "Информация по существующим участкам");
+                showExistingSectors(area.sectors);
             }
             else if (commands[selectedCommand] == "exit") {
                 cout << "Выход из редактирования участка" << endl;
@@ -758,9 +707,8 @@ void setArea(Area &area) {
 }
 
 Area createArea(int newId) {
+    cout << "-----------------------------------------------" << endl;
     cout << "START -> One AREA created" << endl;
-    // system("pause");
-    // system("cls");
     Area area;
     // id - is private properties. Получаем из списка выше
     area.id = newId;
@@ -774,5 +722,32 @@ int main() {
     SetConsoleCP(65001);
     SetConsoleOutputCP(65001);
 
-    createArea(0);
+    vector<Area> areas;
+
+    Area firstArea = createArea(0);
+    // Теоретически, территорий можно создать очень много. Но нам, в данном случае, нужна лишь одна
+    areas.emplace_back(firstArea);
+
+    vector<string> commands = {"edit", "about", "exit"};
+
+    while (true) {
+        cout << "-----------------------------------------------" << endl;
+        cout << "COMMON MENU -> operations with area:" << endl;
+
+        cout << "Для продолжения или окончательного завершения работы программы, введите одну из команд" << endl;
+        auto selectedCommand = getUserSelectionFromList(commands); {
+        }
+
+        if (commands[selectedCommand] == "edit") {
+            // Территория у нас одна единственная
+            setArea(areas[0]);
+        }
+        else if (commands[selectedCommand] == "about") {
+            showExistingSectors(areas[0].sectors);
+        }
+        else if (commands[selectedCommand] == "exit") {
+            cout << "Программа закончила работу. До новых встреч" << endl;
+            break;
+        }
+    }
 }
