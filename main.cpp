@@ -44,7 +44,7 @@ struct Sector {
 };
 struct Area {
     int id{};
-    vector<Sector> sectors;
+    vector<Sector> children;
 };
 
 // --- --- --- --- ---
@@ -440,7 +440,7 @@ void setRoom(Room &room, vector<int> const &availableTypeNumbersForRoom, Buildin
 
 Room getNewRoom(int newId, vector<int> const &availableTypeNumbersForRoom, BuildingType const &buildingType) {
     cout << "-----------------------------------------------" << endl;
-    cout << "AREA/SECTOR/BUILDING/FLOOR: создана комната" << endl;
+    cout << "AREA/SECTOR/BUILDING/FLOOR/ROOM: создана комната" << endl;
     Room room;
     room.id = newId;
     setRoom(room, availableTypeNumbersForRoom, buildingType);
@@ -549,7 +549,7 @@ void setFloor(Floor &floor, vector<int> const &availableFloorTypes, BuildingType
 
 Floor getNewFloor(int newId, vector<int> const& availableFloorTypes, BuildingType const &buildingType) {
     cout << "-----------------------------------------------" << endl;
-    cout << "AREA/SECTOR/BUILDING: создан этаж" << endl;
+    cout << "AREA/SECTOR/BUILDING/FLOOR: создан этаж" << endl;
     Floor floor;
     floor.id = newId;
     setFloor(floor, availableFloorTypes, buildingType);
@@ -588,9 +588,7 @@ void setBuilding(Building &building, vector<int> const &availableBuildingTypes) 
             int selectedCommand;
 
             // Если в списке дочерних ничего нет, то сразу выбираем команду add
-            if (building.children.empty()) {
-                selectedCommand = index;
-            }
+            if (building.children.empty()) selectedCommand = index;
             // В ином случае - добавляем/удаляем пункты меню и выбираем уже из них
             else {
                 // Набираем меню для здания house
@@ -612,7 +610,7 @@ void setBuilding(Building &building, vector<int> const &availableBuildingTypes) 
 
             if (commands[selectedCommand] == "add") {
                 auto newId = getAvailableIndexInFloors(building.children);
-                building.children.push_back(getNewFloor(newId, availableFloorTypes, building.type));
+                building.children.emplace_back(getNewFloor(newId, availableFloorTypes, building.type));
             }
             else if (commands[selectedCommand] == "edit") {
                 if (building.children.empty()) {
@@ -642,30 +640,32 @@ void setBuilding(Building &building, vector<int> const &availableBuildingTypes) 
 
 Building getNewBuilding(int newId, vector<int> const& availableBuildingTypes) {
     cout << "-----------------------------------------------" << endl;
-    cout << "AREA/SECTOR: создано здание" << endl;
+    cout << "AREA/SECTOR/BUILDING: создано здание" << endl;
     Building building;
     building.id = newId;
-
     setBuilding(building, availableBuildingTypes);
 
     return building;
 }
 
 void setSector(Sector &sector) {
+    string menuPath = "AREA/SECTOR";
+
     // --- Изменения типов и количества зданий на участке ---
+    cout << "-----------------------------------------------" << endl;
+    cout << menuPath << ": вносим изменения в список зданий на участке?" << endl;
     showSector(sector);
-    cout << "Хотите внести изменения в список зданий на участке?" << endl;
     if (selectFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
             cout << "-----------------------------------------------" << endl;
-            cout << "AREA -> SECTOR -> operations with sector.buildings:" << endl;
+            cout << menuPath << ": операции со зданиями на участке:" << endl;
 
+            // Если в списке дочерних ничего нет, то сразу выбираем команду add,
+            // иначе добавляем/удаляем пункты меню и выбираем уже из них
             auto selectedCommand = sector.children.empty() ?
-                                   // зданий в секторе ещё нет - автоматически переходим к команде add
                                    findKeyIndexInVector<string>("add", commands) :
-                                   // в остальных случаях - выбираем одну из команд
                                    selectFromList(commands);
 
             // Вычисляем незанятые типы для building, т.к. они должны быть оригинальными
@@ -673,9 +673,14 @@ void setSector(Sector &sector) {
 
             if (commands[selectedCommand] == "add") {
                 auto newId = getAvailableIndexInBuildings(sector.children);
-                sector.children.push_back(getNewBuilding(newId, availableBuildingTypes));
+                sector.children.emplace_back(getNewBuilding(newId, availableBuildingTypes));
             }
             else if (commands[selectedCommand] == "edit") {
+                if (sector.children.empty()) {
+                    cout << "Пока редактировать нечего: список пуст" << endl;
+                    continue;
+                }
+
                 // Сразу выберем первое строение
                 int selectUserItemForChange = 0;
                 auto numberOfBuildings = sector.children.size();
@@ -690,7 +695,6 @@ void setSector(Sector &sector) {
                 showSector(sector);
             }
             else if (commands[selectedCommand] == "exit") {
-                cout << "Выход из редактирования зданий на участке" << endl;
                 break;
             }
         }
@@ -699,52 +703,62 @@ void setSector(Sector &sector) {
 
 Sector getNewSector(int newId) {
     cout << "-----------------------------------------------" << endl;
-    cout << "AREA -> One SECTOR created" << endl;
+    cout << "AREA/SECTOR: создан сектор" << endl;
     Sector sector;
-    // id - is private properties. Получаем из родителя уникальный номер
     sector.id = newId;
-
     setSector(sector);
 
     return sector;
 }
 
 void setArea(Area &area) {
-    // Здесь можно размещать новые поля и условия
-    // ---
-    showExistingSectors(area.sectors);
-    cout << (area.sectors.empty() ? "Хотите добавить?" : "Хотите внести изменения в список участков на территории?") << endl;
+    string menuPath = "AREA";
+
+    // --- Изменения секторов на территории ---
+    cout << "-----------------------------------------------" << endl;
+    cout << menuPath << ": вносим изменения в список секторов на территории?" << endl;
+    showExistingSectors(area.children);
     if (selectFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
             cout << "-----------------------------------------------" << endl;
-            cout << "AREA -> operations with sectors:" << endl;
+            cout << menuPath << ": операции со секторами на территории:" << endl;
 
-            // Если в диалоге выше ввели yes, это уже подразумевает, что мы хотим сразу добавить один сектор:
-            auto selectedCommand = area.sectors.empty() ? 0 : selectFromList(commands);
+            // Пытаемся найти пункт меню. Индекс найден, если >= 0
+            auto index = findKeyIndexInVector<string>("add", commands);
+
+            // Если в списке дочерних ничего нет, то сразу выбираем команду add,
+            // иначе добавляем/удаляем пункты меню и выбираем уже из них
+            auto selectedCommand = area.children.empty() ?
+                                   findKeyIndexInVector<string>("add", commands) :
+                                   selectFromList(commands);
 
             if (commands[selectedCommand] == "add") {
-                auto newId = getAvailableIndexInSectors(area.sectors);
-                area.sectors.push_back(getNewSector(newId));
+                auto newId = getAvailableIndexInSectors(area.children);
+                area.children.emplace_back(getNewSector(newId));
             }
             else if (commands[selectedCommand] == "edit") {
+                if (area.children.empty()) {
+                    cout << "Пока редактировать нечего: список пуст" << endl;
+                    continue;
+                }
+
                 // Сразу выберем первый сектор
                 int selectUserItemForChange = 0;
-                auto numberOfSectors = area.sectors.size();
+                auto numberOfSectors = area.children.size();
                 // Если секторов больше, тогда будем выбирать из перечня
                 if (numberOfSectors > 1) {
                     cout << "Введите id участка от 0 до " << (numberOfSectors - 1) << endl;
                     selectUserItemForChange = getUserNumeric({0, (int)numberOfSectors - 1});
                 }
 
-                setSector(area.sectors[selectUserItemForChange]);
+                setSector(area.children[selectUserItemForChange]);
             }
             else if (commands[selectedCommand] == "about") {
-                showExistingSectors(area.sectors);
+                showExistingSectors(area.children);
             }
             else if (commands[selectedCommand] == "exit") {
-                cout << "Выход из редактирования участка" << endl;
                 break;
             }
         }
@@ -753,11 +767,9 @@ void setArea(Area &area) {
 
 Area createArea(int newId) {
     cout << "-----------------------------------------------" << endl;
-    cout << "START -> One AREA created" << endl;
+    cout << "AREA: создана территория" << endl;
     Area area;
-    // id - is private properties. Получаем из списка выше
     area.id = newId;
-
     setArea(area);
 
     return area;
@@ -779,9 +791,7 @@ int main() {
 
     while (true) {
         cout << "-----------------------------------------------" << endl;
-        cout << "COMMON MENU -> operations with area:" << endl;
-
-        cout << "Для продолжения или окончательного завершения работы программы, введите одну из команд" << endl;
+        cout << "COMMON MENU: операции с территорией:" << endl;
         auto selectedCommand = selectFromList(commands); {
         }
 
@@ -790,7 +800,7 @@ int main() {
             setArea(areas[0]);
         }
         else if (commands[selectedCommand] == "about") {
-            showExistingSectors(areas[0].sectors);
+            showExistingSectors(areas[0].children);
         }
         else if (commands[selectedCommand] == "exit") {
             cout << "Программа закончила работу. До новых встреч" << endl;
