@@ -4,6 +4,7 @@
 #include <string>
 #include <algorithm>
 #include <limits>
+#include <iomanip>
 
 using std::cout;
 using std::endl;
@@ -20,12 +21,14 @@ vector<string> buildingNames = { "house", "garage", "shed", "bathHouse", "undefi
 
 struct Room {
     int id{};
+    const char* path = "AREA/SECTOR/BUILDING/FLOOR/ROOM";
     RoomType type = RoomType::undefined;
     int width = 2000;
     int length = 1000;
 };
 struct Floor {
     int id{};
+    const char* path = "AREA/SECTOR/BUILDING/FLOOR";
     FloorType type = FloorType::undefined;
     int height = 2000;
     int maxRoomCount = 4;
@@ -33,6 +36,7 @@ struct Floor {
 };
 struct Building {
     int id{};
+    const char* path = "AREA/SECTOR/BUILDING";
     BuildingType type = BuildingType::undefined;
     bool isStove = false;
     int maxFloorCountForHouse = 3;
@@ -40,10 +44,12 @@ struct Building {
 };
 struct Sector {
     int id{};
+    const char* path = "AREA/SECTOR";
     vector<Building> children;
 };
 struct Area {
     int id{};
+    const char* path = "AREA";
     vector<Sector> children;
 };
 
@@ -256,45 +262,84 @@ int getAvailableIndexInSectors(vector<Sector> const &sectors) {
     return getAvailableIndexInChildren<Sector>(sectors);
 }
 
+double getRoomFootprint(Room const &room) {
+    return static_cast<double>(room.length * room.width) / 1000000;
+}
+
+double getFloorFootprint(Floor const &floor) {
+    double footprint;
+    for (auto const &room : floor.children)
+        footprint += getRoomFootprint(room);
+
+    return footprint;
+}
+
+double getBuildingFootprint(Building const &building) {
+    double footprint;
+    for (auto const &floor : building.children) {
+        for (auto const &room : floor.children)
+            footprint += getRoomFootprint(room);
+    }
+
+    return footprint;
+}
+
+
 void showRoom(Room const &room) {
-    cout << "-----------------------------" << endl;
+    cout << room.path << ": информация:" << endl;
     cout << "            Комната id ----- : " << room.id << endl;
     cout << "            Тип ------------ : " << roomNames[static_cast<int>(room.type)] << endl;
     cout << "            Ширина --------- : " << room.width << endl;
     cout << "            Длина ---------- : " << room.length << endl;
+    cout << "            Площадь (м2) --- : " << std::fixed << std::setprecision(2) << getRoomFootprint(room) << endl;
+    cout << endl;
 }
 
 void showFloor(Floor const &floor, bool isFullInfo = true) {
-    cout << "-----------------------------" << endl;
+    cout << floor.path << ": информация:" << endl;
     cout << "        Этаж id ------------ : " << floor.id << endl;
     cout << "        Тип ---------------- : " << floorNames[static_cast<int>(floor.type)] << endl;
     cout << "        Высота ------------- : " << floor.height << endl;
     cout << "        Количество комнат -- : " << floor.children.size() << endl;
+    cout << "        Площадь этажа (м2) - : " << std::fixed << std::setprecision(2) << getFloorFootprint(floor) << endl;
+    cout << endl;
+
     if (!floor.children.empty() && isFullInfo) {
-        for (auto const &room : floor.children) showRoom(room);
-        cout << "-----------------------------" << endl;
+        for (auto const &room : floor.children) {
+            showRoom(room);
+            cout << "-----------------------------" << endl;
+        }
     }
 }
 
 void showBuilding(Building const &building, bool isFullInfo = true) {
-    cout << "-----------------------------" << endl;
+    cout << building.path << ": информация:" << endl;
     cout << "    Здание id -------------- : " << building.id << endl;
     cout << "    Тип -------------------- : " << buildingNames[static_cast<int>(building.type)] << endl;
     cout << "    Наличие печи ----------- : " << (building.isStove ? "Есть" : "Нет") << endl;
     cout << "    Количество этажей ------ : " << building.children.size() << endl;
+    cout << "    Площадь дома (м2) ------ : " << std::fixed << std::setprecision(2) << getBuildingFootprint(building) << endl;
+    cout << endl;
+
     if (!building.children.empty() && isFullInfo) {
-        for (auto const &floor : building.children) showFloor(floor);
-        cout << "-----------------------------" << endl;
+        for (auto const &floor : building.children) {
+            showFloor(floor);
+            cout << "-----------------------------" << endl;
+        }
     }
 }
 
 void showSector(Sector const &sector, bool isFullInfo = true) {
-    cout << "-----------------------------" << endl;
+    cout << sector.path << ": информация:" << endl;
     cout << "Сектор id ------------------ :" << sector.id << endl;
     cout << "Количество зданий ---------- :" << sector.children.size() << endl;
+    cout << endl;
+
     if (!sector.children.empty() && isFullInfo) {
-        for (auto const &building : sector.children) showBuilding(building);
-        cout << "-----------------------------" << endl;
+        for (auto const &building : sector.children) {
+            showBuilding(building);
+            cout << "-----------------------------" << endl;
+        }
     }
 }
 
@@ -360,7 +405,7 @@ vector<int> getAvailableBuildingTypeNumbers(Sector const &sector) {
 }
 
 
-int getIndexFromAvailableTypeList(vector<int> const &availableTypeNumbers, vector<string> const &names, string const &menuPath) {
+int getIndexFromAvailableTypeList(vector<int> const &availableTypeNumbers, vector<string> const &names, const char* path) {
     // Преобразовываем в список string для обработки в selectFromList
     vector<string> typeNames;
     typeNames.reserve(availableTypeNumbers.size());
@@ -369,7 +414,7 @@ int getIndexFromAvailableTypeList(vector<int> const &availableTypeNumbers, vecto
     cout << "Возможные типы: " << endl;
     auto indexType = selectFromList(typeNames);
     cout << "-----------------------------------------------" << endl;
-    printf("%s: тип установлен как: %s\n", menuPath.c_str(), names[indexType].c_str());
+    printf("%s: тип установлен как: %s\n", path, names[indexType].c_str());
     return indexType;
 }
 
@@ -378,71 +423,69 @@ void removeCommand(string const &key, vector<string> &list) {
 }
 
 // Позволим пользователю выбрать из доступных типов нужный ему
-RoomType getRoomType(vector<int> const &availableTypeNumbers, string const &menuPath) {
+RoomType getRoomType(vector<int> const &availableTypeNumbers, const char* path) {
     // Добавим ещё список всех возможных названий комнат
-    return static_cast<RoomType>(getIndexFromAvailableTypeList(availableTypeNumbers, roomNames, menuPath));
+    return static_cast<RoomType>(getIndexFromAvailableTypeList(availableTypeNumbers, roomNames, path));
 }
 
 // Позволим пользователю выбрать из доступных типов нужный ему
-FloorType getFloorType(vector<int> const &availableTypes, string const &menuPath) {
+FloorType getFloorType(vector<int> const &availableTypes, const char* path) {
     // Добавим ещё список всех возможных названий этажей
-    return static_cast<FloorType>(getIndexFromAvailableTypeList(availableTypes, floorNames, menuPath));
+    return static_cast<FloorType>(getIndexFromAvailableTypeList(availableTypes, floorNames, path));
 }
 
-BuildingType getBuildingType(vector<int> const &availableTypes, string const &menuPath) {
+BuildingType getBuildingType(vector<int> const &availableTypes, const char* path) {
     // Добавим ещё список всех возможных названий зданий
-    return static_cast<BuildingType>(getIndexFromAvailableTypeList(availableTypes, buildingNames, menuPath));
+    return static_cast<BuildingType>(getIndexFromAvailableTypeList(availableTypes, buildingNames, path));
 }
 
 // --- --- --- --- --- ---
 
-int changeNumericProperty(int propertyValue, string const &propertyName, string const &menuPath, vector<int> const &constraints = {}) {
+int changeNumericProperty(int propertyValue, string const &propertyName, const char* path, vector<int> const &constraints = {}) {
     cout << "-----------------------------------------------" << endl;
-    printf("%s: %s (%i)?\n", menuPath.c_str(), propertyName.c_str(), propertyValue);
+    printf("%s: %s (%i)?\n", path, propertyName.c_str(), propertyValue);
 
     return (selectFromList({ "yes", "no" }) == 0) ? getUserNumeric(constraints) : propertyValue;
 }
 
-bool changeBoolProperty(bool propertyValue, string const &propertyName, string const &menuPath) {
+bool changeBoolProperty(bool propertyValue, string const &propertyName, const char* path) {
     cout << "-----------------------------------------------" << endl;
-    printf("%s: %s (%s)?\n", menuPath.c_str(), propertyName.c_str(), (propertyValue ? "есть " : "нет "));
+    printf("%s: %s (%s)?\n", path, propertyName.c_str(), (propertyValue ? "есть" : "нет"));
 
     return (selectFromList({ "yes", "no" }) == 0) ? !propertyValue : propertyValue;
 }
 
 // availableTypes - перечень типов, которые можно создавать
 void setRoom(Room &room, vector<int> const &availableTypeNumbersForRoom, BuildingType const &buildingType) {
-    string menuPath = "AREA/SECTOR/BUILDING/FLOOR/ROOM";
-
     if (buildingType == BuildingType::house) {
         cout << "-----------------------------------------------" << endl;
-        printf("%s: изменяем тип комнаты (%s)?\n", menuPath.c_str(), roomNames[static_cast<int>(room.type)].c_str());
+        printf("%s: изменяем тип комнаты (%s)?\n", room.path, roomNames[static_cast<int>(room.type)].c_str());
         if (selectFromList({ "yes", "no" }) == 0) {
-            room.type = getRoomType(availableTypeNumbersForRoom, menuPath);
+            room.type = getRoomType(availableTypeNumbersForRoom, room.path);
         }
     }
     // Для всех типов зданий кроме house устанавливаем лишь один тип комнаты: main
     else if (buildingType != BuildingType::house && room.type != RoomType::main) {
         room.type = static_cast<RoomType>(availableTypeNumbersForRoom[0]);
         cout << "-----------------------------------------------" << endl;
-        printf("%s: тип установлен автоматически: %s\n", menuPath.c_str(), roomNames[availableTypeNumbersForRoom[0]].c_str());
+        printf("%s: тип установлен автоматически: %s\n", room.path, roomNames[availableTypeNumbersForRoom[0]].c_str());
     }
 
     string title = "изменяем ширину комнаты";
-    room.width = changeNumericProperty(room.width, title, menuPath, { 1000, 5000 });
+    room.width = changeNumericProperty(room.width, title, room.path, { 1000, 5000 });
 
     title = "изменяем длину комнаты";
-    room.length = changeNumericProperty(room.length, title, menuPath, { 1000, 5000 });
+    room.length = changeNumericProperty(room.length, title, room.path, { 1000, 5000 });
 
     cout << "-----------------------------------------------" << endl;
-    cout << menuPath << ": редактирование комнаты завершено" << endl;
+    cout << room.path << ": редактирование комнаты завершено" << endl;
 }
 
 Room getNewRoom(int newId, vector<int> const &availableTypeNumbersForRoom, BuildingType const &buildingType) {
-    cout << "-----------------------------------------------" << endl;
-    cout << "AREA/SECTOR/BUILDING/FLOOR/ROOM: создана комната" << endl;
     Room room;
     room.id = newId;
+    cout << "-----------------------------------------------" << endl;
+    cout << room.path << ": создана комната" << endl;
     setRoom(room, availableTypeNumbersForRoom, buildingType);
 
     return room;
@@ -451,35 +494,33 @@ Room getNewRoom(int newId, vector<int> const &availableTypeNumbersForRoom, Build
 // availableFloorTypes - перечень этажей, которые можно создавать
 // buildingType - даёт представление о том, какие комнаты доступны
 void setFloor(Floor &floor, vector<int> const &availableFloorTypes, BuildingType const &buildingType) {
-    string menuPath = "AREA/SECTOR/BUILDING/FLOOR";
-
     if (buildingType == BuildingType::house) {
         cout << "-----------------------------------------------" << endl;
-        printf("%s: изменяем тип этажа (%s)?\n", menuPath.c_str(), floorNames[static_cast<int>(floor.type)].c_str());
+        printf("%s: изменяем тип этажа (%s)?\n", floor.path, floorNames[static_cast<int>(floor.type)].c_str());
         if (selectFromList({"yes", "no"}) == 0) {
-            floor.type = getFloorType(availableFloorTypes, menuPath);
+            floor.type = getFloorType(availableFloorTypes, floor.path);
         }
     }
     // Для всех типов зданий кроме house устанавливаем лишь один тип этажа: first
     else if (buildingType != BuildingType::house && floor.type != FloorType::first) {
         floor.type = FloorType::first;
         cout << "-----------------------------------------------" << endl;
-        printf("%s: тип установлен автоматически: %s\n", menuPath.c_str(), floorNames[static_cast<int>(floor.type)].c_str());
+        printf("%s: тип установлен автоматически: %s\n", floor.path, floorNames[static_cast<int>(floor.type)].c_str());
     }
 
     string title = "изменяем высоту этажа";
-    floor.height = changeNumericProperty(floor.height, title, menuPath, { 2000, 4000 });
+    floor.height = changeNumericProperty(floor.height, title, floor.path, { 2000, 4000 });
 
     // --- Изменения типов и количества комнат на этаже ---
     cout << "-----------------------------------------------" << endl;
-    cout << menuPath << ": вносим изменения в список комнат на этаже?" << endl;
+    cout << floor.path << ": вносим изменения в список комнат на этаже?" << endl;
     showFloor(floor);
     if (selectFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
             cout << "-----------------------------------------------" << endl;
-            cout << menuPath << ": операции с комнатами этажа:" << endl;
+            cout << floor.path << ": операции с комнатами этажа:" << endl;
 
             // Пытаемся найти пункт меню. Индекс найден, если >= 0
             auto index = findKeyIndexInVector<string>("add", commands);
@@ -548,39 +589,37 @@ void setFloor(Floor &floor, vector<int> const &availableFloorTypes, BuildingType
 }
 
 Floor getNewFloor(int newId, vector<int> const& availableFloorTypes, BuildingType const &buildingType) {
-    cout << "-----------------------------------------------" << endl;
-    cout << "AREA/SECTOR/BUILDING/FLOOR: создан этаж" << endl;
     Floor floor;
     floor.id = newId;
+    cout << "-----------------------------------------------" << endl;
+    cout << floor.path << ": создан этаж" << endl;
     setFloor(floor, availableFloorTypes, buildingType);
 
     return floor;
 }
 
 void setBuilding(Building &building, vector<int> const &availableBuildingTypes) {
-    string menuPath = "AREA/SECTOR/BUILDING";
-
     cout << "-----------------------------------------------" << endl;
-    printf("%s: изменяем тип этажа (%s)?\n", menuPath.c_str(), buildingNames[static_cast<int>(building.type)].c_str());
+    printf("%s: изменяем тип этажа (%s)?\n", building.path, buildingNames[static_cast<int>(building.type)].c_str());
     if (selectFromList({ "yes", "no" }) == 0) {
-        building.type = getBuildingType(availableBuildingTypes, menuPath);
+        building.type = getBuildingType(availableBuildingTypes, building.path);
     }
 
     if (building.type == BuildingType::house || building.type == BuildingType::bathHouse) {
         string title = "изменяем наличие печи";
-        building.isStove = changeBoolProperty(building.isStove, title, menuPath);
+        building.isStove = changeBoolProperty(building.isStove, title, building.path);
     }
 
     // --- Изменения типов и количества этажей в здании ---
     cout << "-----------------------------------------------" << endl;
-    cout << menuPath << ": вносим изменения в список этажей в здании?" << endl;
+    cout << building.path << ": вносим изменения в список этажей в здании?" << endl;
     showBuilding(building);
     if (selectFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
             cout << "-----------------------------------------------" << endl;
-            cout << menuPath << ": операции с этажами здания:" << endl;
+            cout << building.path << ": операции с этажами здания:" << endl;
 
             // Пытаемся найти пункт меню. Индекс найден, если >= 0
             auto index = findKeyIndexInVector<string>("add", commands);
@@ -639,28 +678,26 @@ void setBuilding(Building &building, vector<int> const &availableBuildingTypes) 
 }
 
 Building getNewBuilding(int newId, vector<int> const& availableBuildingTypes) {
-    cout << "-----------------------------------------------" << endl;
-    cout << "AREA/SECTOR/BUILDING: создано здание" << endl;
     Building building;
     building.id = newId;
+    cout << "-----------------------------------------------" << endl;
+    cout << building.path << ": создано здание" << endl;
     setBuilding(building, availableBuildingTypes);
 
     return building;
 }
 
 void setSector(Sector &sector) {
-    string menuPath = "AREA/SECTOR";
-
     // --- Изменения типов и количества зданий на участке ---
     cout << "-----------------------------------------------" << endl;
-    cout << menuPath << ": вносим изменения в список зданий на участке?" << endl;
+    cout << sector.path << ": вносим изменения в список зданий на участке?" << endl;
     showSector(sector);
     if (selectFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
             cout << "-----------------------------------------------" << endl;
-            cout << menuPath << ": операции со зданиями на участке:" << endl;
+            cout << sector.path << ": операции со зданиями на участке:" << endl;
 
             // Если в списке дочерних ничего нет, то сразу выбираем команду add,
             // иначе добавляем/удаляем пункты меню и выбираем уже из них
@@ -702,28 +739,26 @@ void setSector(Sector &sector) {
 }
 
 Sector getNewSector(int newId) {
-    cout << "-----------------------------------------------" << endl;
-    cout << "AREA/SECTOR: создан сектор" << endl;
     Sector sector;
     sector.id = newId;
+    cout << "-----------------------------------------------" << endl;
+    cout << sector.path << ": создан сектор" << endl;
     setSector(sector);
 
     return sector;
 }
 
 void setArea(Area &area) {
-    string menuPath = "AREA";
-
     // --- Изменения секторов на территории ---
     cout << "-----------------------------------------------" << endl;
-    cout << menuPath << ": вносим изменения в список секторов на территории?" << endl;
+    cout << area.path << ": вносим изменения в список секторов на территории?" << endl;
     showExistingSectors(area.children);
     if (selectFromList({"yes", "no"}) == 0) {
         vector<string> commands = {"add", "edit", "about", "exit"};
 
         while (true) {
             cout << "-----------------------------------------------" << endl;
-            cout << menuPath << ": операции со секторами на территории:" << endl;
+            cout << area.path << ": операции со секторами на территории:" << endl;
 
             // Пытаемся найти пункт меню. Индекс найден, если >= 0
             auto index = findKeyIndexInVector<string>("add", commands);
@@ -766,10 +801,10 @@ void setArea(Area &area) {
 }
 
 Area createArea(int newId) {
-    cout << "-----------------------------------------------" << endl;
-    cout << "AREA: создана территория" << endl;
     Area area;
     area.id = newId;
+    cout << "-----------------------------------------------" << endl;
+    cout << area.path << ": создана территория" << endl;
     setArea(area);
 
     return area;
