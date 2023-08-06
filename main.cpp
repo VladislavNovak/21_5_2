@@ -15,29 +15,28 @@ enum class RoomType { bedroom, kitchen, bathroom, restroom, playroom, living, ma
 enum class FloorType { first, second, third, undefined };
 enum class BuildingType { house, garage, shed, bathHouse, undefined };
 
-vector<string> roomNames = { "bedroom", "kitchen", "bathroom", "restroom", "playroom", "living", "main", "undefined" };
-vector<string> floorNames = { "first", "second", "third", "undefined" };
-vector<string> buildingNames = { "house", "garage", "shed", "bathHouse", "undefined" };
-
 struct Room {
     int id{};
-    const char* path = "AREA/SECTOR/BUILDING/FLOOR/ROOM";
     RoomType type = RoomType::undefined;
+    const char* path = "AREA/SECTOR/BUILDING/FLOOR/ROOM";
+    vector<string> roomNames = { "bedroom", "kitchen", "bathroom", "restroom", "playroom", "living", "main", "undefined" };
     int width = 2000;
     int length = 1000;
 };
 struct Floor {
     int id{};
-    const char* path = "AREA/SECTOR/BUILDING/FLOOR";
     FloorType type = FloorType::undefined;
+    const char* path = "AREA/SECTOR/BUILDING/FLOOR";
+    vector<string> floorNames = { "first", "second", "third", "undefined" };
     int height = 2000;
     int maxRoomCount = 4;
     vector<Room> children;
 };
 struct Building {
     int id{};
-    const char* path = "AREA/SECTOR/BUILDING";
     BuildingType type = BuildingType::undefined;
+    const char* path = "AREA/SECTOR/BUILDING";
+    vector<string> buildingNames = { "house", "garage", "shed", "bathHouse", "undefined" };
     bool isStove = false;
     int maxFloorCountForHouse = 3;
     vector<Floor> children;
@@ -288,7 +287,7 @@ double getBuildingFootprint(Building const &building) {
 void showRoom(Room const &room) {
     cout << room.path << ": информация:" << endl;
     cout << "            Комната id ----- : " << room.id << endl;
-    cout << "            Тип ------------ : " << roomNames[static_cast<int>(room.type)] << endl;
+    cout << "            Тип ------------ : " << room.roomNames[static_cast<int>(room.type)] << endl;
     cout << "            Ширина --------- : " << room.width << endl;
     cout << "            Длина ---------- : " << room.length << endl;
     cout << "            Площадь (м2) --- : " << std::fixed << std::setprecision(2) << getRoomFootprint(room) << endl;
@@ -298,7 +297,7 @@ void showRoom(Room const &room) {
 void showFloor(Floor const &floor, bool isFullInfo = true) {
     cout << floor.path << ": информация:" << endl;
     cout << "        Этаж id ------------ : " << floor.id << endl;
-    cout << "        Тип ---------------- : " << floorNames[static_cast<int>(floor.type)] << endl;
+    cout << "        Тип ---------------- : " << floor.floorNames[static_cast<int>(floor.type)] << endl;
     cout << "        Высота ------------- : " << floor.height << endl;
     cout << "        Количество комнат -- : " << floor.children.size() << endl;
     cout << "        Площадь этажа (м2) - : " << std::fixed << std::setprecision(2) << getFloorFootprint(floor) << endl;
@@ -315,7 +314,7 @@ void showFloor(Floor const &floor, bool isFullInfo = true) {
 void showBuilding(Building const &building, bool isFullInfo = true) {
     cout << building.path << ": информация:" << endl;
     cout << "    Здание id -------------- : " << building.id << endl;
-    cout << "    Тип -------------------- : " << buildingNames[static_cast<int>(building.type)] << endl;
+    cout << "    Тип -------------------- : " << building.buildingNames[static_cast<int>(building.type)] << endl;
     cout << "    Наличие печи ----------- : " << (building.isStove ? "Есть" : "Нет") << endl;
     cout << "    Количество этажей ------ : " << building.children.size() << endl;
     cout << "    Площадь дома (м2) ------ : " << std::fixed << std::setprecision(2) << getBuildingFootprint(building) << endl;
@@ -423,19 +422,16 @@ void removeCommand(string const &key, vector<string> &list) {
 }
 
 // Позволим пользователю выбрать из доступных типов нужный ему
-RoomType getRoomType(vector<int> const &availableTypeNumbers, const char* path) {
-    // Добавим ещё список всех возможных названий комнат
+RoomType getRoomType(vector<int> const &availableTypeNumbers, vector<string> const &roomNames, const char* path) {
     return static_cast<RoomType>(getIndexFromAvailableTypeList(availableTypeNumbers, roomNames, path));
 }
 
 // Позволим пользователю выбрать из доступных типов нужный ему
-FloorType getFloorType(vector<int> const &availableTypes, const char* path) {
-    // Добавим ещё список всех возможных названий этажей
+FloorType getFloorType(vector<int> const &availableTypes, vector<string> const &floorNames, const char* path) {
     return static_cast<FloorType>(getIndexFromAvailableTypeList(availableTypes, floorNames, path));
 }
 
-BuildingType getBuildingType(vector<int> const &availableTypes, const char* path) {
-    // Добавим ещё список всех возможных названий зданий
+BuildingType getBuildingType(vector<int> const &availableTypes, vector<string> const &buildingNames, const char* path) {
     return static_cast<BuildingType>(getIndexFromAvailableTypeList(availableTypes, buildingNames, path));
 }
 
@@ -459,16 +455,16 @@ bool changeBoolProperty(bool propertyValue, string const &propertyName, const ch
 void setRoom(Room &room, vector<int> const &availableTypeNumbersForRoom, BuildingType const &buildingType) {
     if (buildingType == BuildingType::house) {
         cout << "-----------------------------------------------" << endl;
-        printf("%s: изменяем тип комнаты (%s)?\n", room.path, roomNames[static_cast<int>(room.type)].c_str());
+        printf("%s: изменяем тип комнаты (%s)?\n", room.path, room.roomNames[static_cast<int>(room.type)].c_str());
         if (selectFromList({ "yes", "no" }) == 0) {
-            room.type = getRoomType(availableTypeNumbersForRoom, room.path);
+            room.type = getRoomType(availableTypeNumbersForRoom, room.roomNames, room.path);
         }
     }
     // Для всех типов зданий кроме house устанавливаем лишь один тип комнаты: main
     else if (buildingType != BuildingType::house && room.type != RoomType::main) {
         room.type = static_cast<RoomType>(availableTypeNumbersForRoom[0]);
         cout << "-----------------------------------------------" << endl;
-        printf("%s: тип установлен автоматически: %s\n", room.path, roomNames[availableTypeNumbersForRoom[0]].c_str());
+        printf("%s: тип установлен автоматически: %s\n", room.path, room.roomNames[availableTypeNumbersForRoom[0]].c_str());
     }
 
     string title = "изменяем ширину комнаты";
@@ -496,16 +492,16 @@ Room getNewRoom(int newId, vector<int> const &availableTypeNumbersForRoom, Build
 void setFloor(Floor &floor, vector<int> const &availableFloorTypes, BuildingType const &buildingType) {
     if (buildingType == BuildingType::house) {
         cout << "-----------------------------------------------" << endl;
-        printf("%s: изменяем тип этажа (%s)?\n", floor.path, floorNames[static_cast<int>(floor.type)].c_str());
+        printf("%s: изменяем тип этажа (%s)?\n", floor.path, floor.floorNames[static_cast<int>(floor.type)].c_str());
         if (selectFromList({"yes", "no"}) == 0) {
-            floor.type = getFloorType(availableFloorTypes, floor.path);
+            floor.type = getFloorType(availableFloorTypes, floor.floorNames, floor.path);
         }
     }
     // Для всех типов зданий кроме house устанавливаем лишь один тип этажа: first
     else if (buildingType != BuildingType::house && floor.type != FloorType::first) {
         floor.type = FloorType::first;
         cout << "-----------------------------------------------" << endl;
-        printf("%s: тип установлен автоматически: %s\n", floor.path, floorNames[static_cast<int>(floor.type)].c_str());
+        printf("%s: тип установлен автоматически: %s\n", floor.path, floor.floorNames[static_cast<int>(floor.type)].c_str());
     }
 
     string title = "изменяем высоту этажа";
@@ -600,9 +596,9 @@ Floor getNewFloor(int newId, vector<int> const& availableFloorTypes, BuildingTyp
 
 void setBuilding(Building &building, vector<int> const &availableBuildingTypes) {
     cout << "-----------------------------------------------" << endl;
-    printf("%s: изменяем тип этажа (%s)?\n", building.path, buildingNames[static_cast<int>(building.type)].c_str());
+    printf("%s: изменяем тип этажа (%s)?\n", building.path, building.buildingNames[static_cast<int>(building.type)].c_str());
     if (selectFromList({ "yes", "no" }) == 0) {
-        building.type = getBuildingType(availableBuildingTypes, building.path);
+        building.type = getBuildingType(availableBuildingTypes, building.buildingNames, building.path);
     }
 
     if (building.type == BuildingType::house || building.type == BuildingType::bathHouse) {
